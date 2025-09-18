@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificateur de Budget Personnel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; 
+            background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+            min-height: 100vh;
+        }
+        .icon { width: 20px; height: 20px; display: inline-block; margin-right: 8px; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px; }
+        .btn { padding: 12px 24px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-secondary:hover { background: #4b5563; }
+        .btn-purple { background: #8b5cf6; color: white; }
+        .btn-purple:hover { background: #7c3aed; }
+        .input { padding: 12px; border: 2px solid #d1d5db; border-radius: 8px; width: 100%; margin-bottom: 12px; }
+        .input:focus { outline: none; border-color: #3b82f6; }
+        .grid { display: grid; gap: 24px; }
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        .flex { display: flex; align-items: center; }
+        .flex-between { justify-content: space-between; }
+        .flex-center { justify-content: center; }
+        .space-x-2 > * + * { margin-left: 8px; }
+        .space-y-4 > * + * { margin-top: 16px; }
+        .text-center { text-align: center; }
+        .text-green { color: #059669; }
+        .text-red { color: #dc2626; }
+        .text-blue { color: #2563eb; }
+        .text-purple { color: #7c3aed; }
+        .text-gray { color: #6b7280; }
+        .font-bold { font-weight: 700; }
+        .text-2xl { font-size: 1.5rem; }
+        .text-3xl { font-size: 1.875rem; }
+        .mb-4 { margin-bottom: 16px; }
+        .mb-6 { margin-bottom: 24px; }
+        .p-4 { padding: 16px; }
+        .hidden { display: none; }
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: #e5e7eb;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.3s ease;
+        }
+        .alert {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        .month-card {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .month-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .month-card.current {
+            border-color: #8b5cf6;
+            background: #faf5ff;
+        }
+    </style>
+</head>
+<body>
+    <div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+        <!-- Header -->
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-bold mb-4">💰 Planificateur de Budget</h1>
+            <p class="text-gray mb-4">Gérez vos finances personnelles efficacement</p>
+            
+            <!-- Contrôles de sauvegarde -->
+            <div class="flex flex-center space-x-2">
+                <button onclick="exportData()" class="btn btn-success">
+                    📥 Exporter
+                </button>
+                <input type="file" id="importFile" accept=".json" onchange="importData(this)" style="display: none;">
+                <button onclick="document.getElementById('importFile').click()" class="btn btn-primary">
+                    📤 Importer
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation mensuelle -->
+        <div class="card">
+            <div class="flex flex-between">
+                <button onclick="navigateMonth(-1)" class="btn btn-secondary">
+                    ← Mois précédent
+                </button>
+                <div class="text-center">
+                    <h2 id="currentMonthDisplay" class="text-2xl font-bold"></h2>
+                    <div class="flex flex-center space-x-2" style="margin-top: 8px;">
+                        <button onclick="navigateYear(-1)" class="btn btn-secondary" style="padding: 6px 12px; font-size: 14px;">
+                            ← Année précédente
+                        </button>
+                        <span id="currentYearDisplay" class="text-gray font-bold"></span>
+                        <button onclick="navigateYear(1)" class="btn btn-secondary" style="padding: 6px 12px; font-size: 14px;">
+                            Année suivante →
+                        </button>
+                    </div>
+                </div>
+                <button onclick="navigateMonth(1)" class="btn btn-secondary">
+                    Mois suivant →
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation par onglets -->
+        <div class="card">
+            <div class="flex flex-center space-x-2" style="flex-wrap: wrap; gap: 8px;">
+                <button onclick="switchTab('yearly')" id="tab-yearly" class="btn btn-purple">📊 Vue Annuelle</button>
+                <button onclick="switchTab('overview')" id="tab-overview" class="btn btn-secondary">📈 Vue d'ensemble</button>
+                <button onclick="switchTab('income')" id="tab-income" class="btn btn-secondary">💰 Revenus</button>
+                <button onclick="switchTab('expenses')" id="tab-expenses" class="btn btn-secondary">🛍️ Dépenses</button>
+                <button onclick="switchTab('savings')" id="tab-savings" class="btn btn-secondary">🏦 Épargne</button>
+                <button onclick="switchTab('history')" id="tab-history" class="btn btn-secondary">📈 Historique</button>
+            </div>
+        </div>
+
+        <!-- Contenu des onglets -->
+        <div id="content-yearly" class="tab-content">
+            <!-- Résumé annuel -->
+            <div class="grid grid-4">
+                <div class="card" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);">
+                    <h3 class="text-gray mb-4">Revenus annuels</h3>
+                    <p id="yearly-total-income" class="text-2xl font-bold text-green">0,00 €</p>
+                    <p id="yearly-income-avg" class="text-gray" style="font-size: 14px;">Moyenne mensuelle: 0,00 €</p>
+                </div>
+                <div class="card" style="background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);">
+                    <h3 class="text-gray mb-4">Dépenses annuelles</h3>
+                    <p id="yearly-total-expenses" class="text-2xl font-bold text-red">0,00 €</p>
+                    <p id="yearly-expenses-avg" class="text-gray" style="font-size: 14px;">Moyenne mensuelle: 0,00 €</p>
+                </div>
+                <div class="card" style="background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);">
+                    <h3 class="text-gray mb-4">Épargne annuelle</h3>
+                    <p id="yearly-total-savings" class="text-2xl font-bold text-blue">0,00 €</p>
+                    <p id="yearly-savings-avg" class="text-gray" style="font-size: 14px;">Moyenne mensuelle: 0,00 €</p>
+                </div>
+                <div class="card" style="background: linear-gradient(135deg, #faf5ff 0%, #e9d5ff 100%);">
+                    <h3 class="text-gray mb-4">Solde annuel</h3>
+                    <p id="yearly-remaining-budget" class="text-2xl font-bold">0,00 €</p>
+                    <p id="yearly-balance-avg" class="text-gray" style="font-size: 14px;">Moyenne mensuelle: 0,00 €</p>
+                </div>
+            </div>
+
+            <!-- Graphique mensuel de l'année -->
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Évolution mensuelle de l'année <span id="display-year"></span></h3>
+                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;" id="monthly-overview"></div>
+            </div>
+
+            <!-- Comparaison des catégories de dépenses -->
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Répartition annuelle des dépenses par catégorie</h3>
+                <div id="yearly-expenses-breakdown"></div>
+            </div>
+
+            <!-- Objectifs d'épargne annuels -->
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Progression des objectifs d'épargne</h3>
+                <div id="yearly-savings-goals"></div>
+            </div>
+        </div>
+
+        <div id="content-overview" class="tab-content hidden">
+            <!-- Résumé financier -->
+            <div class="grid grid-4">
+                <div class="card">
+                    <h3 class="text-gray mb-4">Revenus totaux</h3>
+                    <p id="total-income" class="text-2xl font-bold text-green">0,00 €</p>
+                </div>
+                <div class="card">
+                    <h3 class="text-gray mb-4">Dépenses totales</h3>
+                    <p id="total-expenses" class="text-2xl font-bold text-red">0,00 €</p>
+                </div>
+                <div class="card">
+                    <h3 class="text-gray mb-4">Épargne</h3>
+                    <p id="total-savings" class="text-2xl font-bold text-blue">0,00 €</p>
+                </div>
+                <div class="card">
+                    <h3 class="text-gray mb-4">Solde restant</h3>
+                    <p id="remaining-budget" class="text-2xl font-bold">0,00 €</p>
+                </div>
+            </div>
+
+            <!-- Alerte budget -->
+            <div id="budget-alert" class="alert hidden">
+                <p><strong>⚠️ Attention !</strong> Vous dépassez votre budget de <span id="deficit-amount"></span></p>
+            </div>
+
+            <!-- Répartition des dépenses -->
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Répartition des dépenses</h3>
+                <div id="expenses-breakdown"></div>
+            </div>
+        </div>
+
+        <div id="content-income" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Ajouter un revenu</h3>
+                <div class="grid grid-2" style="grid-template-columns: 1fr 1fr auto;">
+                    <input type="number" id="income-amount" placeholder="Montant (€)" class="input">
+                    <input type="text" id="income-source" placeholder="Source du revenu" class="input">
+                    <button onclick="addIncome()" class="btn btn-primary">➕ Ajouter</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Mes revenus</h3>
+                <div id="income-list"></div>
+            </div>
+        </div>
+
+        <div id="content-expenses" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Ajouter une dépense</h3>
+                <div class="grid grid-2" style="grid-template-columns: 1fr 1fr 1fr auto;">
+                    <input type="number" id="expense-amount" placeholder="Montant (€)" class="input">
+                    <select id="expense-category" class="input">
+                        <option value="Logement">🏠 Logement</option>
+                        <option value="Essence">⛽ Essence</option>
+                        <option value="Assurance">🛡️ Assurance</option>
+                        <option value="Alimentation">🛒 Alimentation</option>
+                        <option value="Loisirs">☕ Loisirs</option>
+                        <option value="Santé">❤️ Santé</option>
+                        <option value="Divertissement">🎮 Divertissement</option>
+                        <option value="Éducation">📚 Éducation</option>
+                        <option value="Voyages">✈️ Voyages</option>
+                        <option value="Technologie">📱 Technologie</option>
+                        <option value="Autres">⚙️ Autres</option>
+                    </select>
+                    <input type="text" id="expense-description" placeholder="Description" class="input">
+                    <button onclick="addExpense()" class="btn btn-danger">➕ Ajouter</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Mes dépenses</h3>
+                <div id="expenses-list"></div>
+            </div>
+        </div>
+
+        <div id="content-savings" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Ajouter un objectif d'épargne</h3>
+                <div class="grid grid-2" style="grid-template-columns: 1fr 1fr 1fr auto;">
+                    <input type="text" id="savings-goal" placeholder="Objectif d'épargne" class="input">
+                    <input type="number" id="savings-target" placeholder="Objectif (€)" class="input">
+                    <input type="number" id="savings-amount" placeholder="Montant actuel (€)" class="input">
+                    <button onclick="addSavings()" class="btn btn-primary">➕ Ajouter</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Mes objectifs d'épargne</h3>
+                <div id="savings-list"></div>
+            </div>
+        </div>
+
+        <div id="content-history" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-2xl font-bold mb-4">Historique mensuel</h3>
+                <div id="history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let currentMonth = new Date().toISOString().slice(0, 7);
+        let currentYear = new Date().getFullYear();
+        let budgetData = {};
+        let activeTab = 'yearly';
+
+        // Charger les données au démarrage
+        window.onload = function() {
+            loadData();
+            updateCurrentMonthDisplay();
+            updateDisplay();
+        };
+
+        // Charger les données depuis localStorage
+        function loadData() {
+            const saved = localStorage.getItem('budgetPlannerData');
+            if (saved) {
+                try {
+                    budgetData = JSON.parse(saved);
+                } catch (e) {
+                    console.error('Erreur chargement:', e);
+                    budgetData = {};
+                }
+            }
+        }
+
+        // Sauvegarder les données
+        function saveData() {
+            localStorage.setItem('budgetPlannerData', JSON.stringify(budgetData));
+        }
+
+        // Initialiser le mois actuel
+        function initCurrentMonth() {
+            if (!budgetData[currentMonth]) {
+                budgetData[currentMonth] = {
+                    income: [],
+                    expenses: [],
+                    savings: []
+                };
+            }
+        }
+
+        // Navigation entre les mois
+        function navigateMonth(direction) {
+            const date = new Date(currentMonth + '-01');
+            date.setMonth(date.getMonth() + direction);
+            currentMonth = date.toISOString().slice(0, 7);
+            currentYear = date.getFullYear();
+            updateCurrentMonthDisplay();
+            updateDisplay();
+        }
+
+        // Navigation entre les années
+        function navigateYear(direction) {
+            currentYear += direction;
+            const date = new Date(currentYear, new Date(currentMonth + '-01').getMonth(), 1);
+            currentMonth = date.toISOString().slice(0, 7);
+            updateCurrentMonthDisplay();
+            updateDisplay();
+        }
+
+        // Mettre à jour l'affichage du mois et de l'année
+        function updateCurrentMonthDisplay() {
+            const date = new Date(currentMonth + '-01');
+            const monthName = date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            document.getElementById('currentMonthDisplay').textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+            document.getElementById('currentYearDisplay').textContent = currentYear;
+            document.getElementById('display-year').textContent = currentYear;
+        }
+
+        // Changer d'onglet
+        function switchTab(tab) {
+            // Cacher tous les onglets
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="tab-"]').forEach(el => {
+                el.className = el.id === 'tab-yearly' ? 'btn btn-purple' : 'btn btn-secondary';
+            });
+            
+            // Afficher l'onglet sélectionné
+            document.getElementById('content-' + tab).classList.remove('hidden');
+            if (tab === 'yearly') {
+                document.getElementById('tab-' + tab).className = 'btn btn-purple';
+            } else {
+                document.getElementById('tab-' + tab).className = 'btn btn-primary';
+            }
+            activeTab = tab;
+            updateDisplay();
+        }
+
+        // Formatage monétaire
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('fr-FR', {
+                style: 'currency',
+                currency: 'EUR'
+            }).format(amount);
+        }
+
+        // Ajouter un revenu
+        function addIncome() {
+            const amount = parseFloat(document.getElementById('income-amount').value);
+            const source = document.getElementById('income-source').value.trim();
+            
+            if (amount && source) {
+                initCurrentMonth();
+                budgetData[currentMonth].income.push({
+                    id: Date.now(),
+                    amount: amount,
+                    source: source,
+                    date: new Date().toISOString()
+                });
+                
+                document.getElementById('income-amount').value = '';
+                document.getElementById('income-source').value = '';
+                saveData();
+                updateDisplay();
+            } else {
+                alert('Veuillez remplir tous les champs');
+            }
+        }
+
+        // Ajouter une dépense
+        function addExpense() {
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+            const category = document.getElementById('expense-category').value;
+            const description = document.getElementById('expense-description').value.trim();
+            
+            if (amount && description) {
+                initCurrentMonth();
+                budgetData[currentMonth].expenses.push({
+                    id: Date.now(),
+                    amount: amount,
+                    category: category,
+                    description: description,
+                    date: new Date().toISOString()
+                });
+                
+                document.getElementById('expense-amount').value = '';
+                document.getElementById('expense-description').value = '';
+                saveData();
+                updateDisplay();
+            } else {
+                alert('Veuillez remplir tous les champs');
+            }
+        }
+
+        // Ajouter une épargne
+        function addSavings() {
+            const goal = document.getElementById('savings-goal').value.trim();
+            const target = parseFloat(document.getElementById('savings-target').value);
+            const amount = parseFloat(document.getElementById('savings-amount').value);
+            
+            if (goal && target && amount >= 0) {
+                initCurrentMonth();
+                budgetData[currentMonth].savings.push({
+                    id: Date.now(),
+                    goal: goal,
+                    target: target,
+                    amount: amount,
+                    date: new Date().toISOString()
+                });
+                
+                document.getElementById('savings-goal').value = '';
+                document.getElementById('savings-target').value = '';
+                document.getElementById('savings-amount').value = '';
+                saveData();
+                updateDisplay();
+            } else {
+                alert('Veuillez remplir tous les champs');
+            }
+        }
+
+        // Supprimer un élément
+        function removeItem(id, type) {
+            if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+                budgetData[currentMonth][type] = budgetData[currentMonth][type].filter(item => item.id !== id);
+                saveData();
+                updateDisplay();
+            }
+        }
+
+        // Calculer les totaux annuels
+        function calculateYearlyTotals(year) {
+            let totalIncome = 0, totalExpenses = 0, totalSavings = 0;
+            let monthsWithData = 0;
+            
+            for (let month = 1; month <= 12; month++) {
+                const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+                if (budgetData[monthKey]) {
+                    const data = budgetData[monthKey];
+                    totalIncome += data.income.reduce((sum, item) => sum + item.amount, 0);
+                    totalExpenses += data.expenses.reduce((sum, item) => sum + item.amount, 0);
+                    totalSavings += data.savings.reduce((sum, item) => sum + item.amount, 0);
+                    if (data.income.length > 0 || data.expenses.length > 0 || data.savings.length > 0) {
+                        monthsWithData++;
+                    }
+                }
+            }
+            
+            return {
+                totalIncome,
+                totalExpenses,
+                totalSavings,
+                remainingBudget: totalIncome - totalExpenses - totalSavings,
+                monthsWithData: Math.max(monthsWithData, 1)
+            };
+        }
+
+        // Mettre à jour la vue annuelle
+        function updateYearlyView() {
+            const yearlyData = calculateYearlyTotals(currentYear);
+            
+            // Totaux annuels
+            document.getElementById('yearly-total-income').textContent = formatCurrency(yearlyData.totalIncome);
+            document.getElementById('yearly-total-expenses').textContent = formatCurrency(yearlyData.totalExpenses);
+            document.getElementById('yearly-total-savings').textContent = formatCurrency(yearlyData.totalSavings);
+            document.getElementById('yearly-remaining-budget').textContent = formatCurrency(yearlyData.remainingBudget);
+            document.getElementById('yearly-remaining-budget').className = `text-2xl font-bold ${yearlyData.remainingBudget >= 0 ? 'text-green' : 'text-red'}`;
+            
+            // Moyennes mensuelles
+            document.getElementById('yearly-income-avg').textContent = `Moyenne mensuelle: ${formatCurrency(yearlyData.totalIncome / 12)}`;
+            document.getElementById('yearly-expenses-avg').textContent = `Moyenne mensuelle: ${formatCurrency(yearlyData.totalExpenses / 12)}`;
+            document.getElementById('yearly-savings-avg').textContent = `Moyenne mensuelle: ${formatCurrency(yearlyData.totalSavings / 12)}`;
+            document.getElementById('yearly-balance-avg').textContent = `Moyenne mensuelle: ${formatCurrency(yearlyData.remainingBudget / 12)}`;
+            
+            // Vue mensuelle de l'année
+            updateMonthlyOverview();
+            
+            // Répartition annuelle des dépenses
+            updateYearlyExpensesBreakdown();
+            
+            // Objectifs d'épargne annuels
+            updateYearlySavingsGoals();
+        }
+
+        // Mettre à jour la vue mensuelle de l'année
+        function updateMonthlyOverview() {
+            const monthlyContainer = document.getElementById('monthly-overview');
+            const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                          'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            
+            monthlyContainer.innerHTML = months.map((monthName, index) => {
+                const monthKey = `${currentYear}-${(index + 1).toString().padStart(2, '0')}`;
+                const data = budgetData[monthKey];
+                const isCurrent = monthKey === currentMonth;
+                
+                let income = 0, expenses = 0, savings = 0;
+                if (data) {
+                    income = data.income.reduce((sum, item) => sum + item.amount, 0);
+                    expenses = data.expenses.reduce((sum, item) => sum + item.amount, 0);
+                    savings = data.savings.reduce((sum, item) => sum + item.amount, 0);
+                }
+                const balance = income - expenses - savings;
+                
+                return `
+                    <div class="month-card ${isCurrent ? 'current' : ''}" onclick="goToMonth('${monthKey}')">
+                        <h4 class="font-bold mb-2 ${isCurrent ? 'text-purple' : ''}">${monthName}</h4>
+                        <div style="font-size: 12px; line-height: 1.4;">
+                            <p class="text-green">R: ${formatCurrency(income)}</p>
+                            <p class="text-red">D: ${formatCurrency(expenses)}</p>
+                            <p class="text-blue">E: ${formatCurrency(savings)}</p>
+                            <hr style="margin: 4px 0; border-color: #e2e8f0;">
+                            <p class="font-bold ${balance >= 0 ? 'text-green' : 'text-red'}">
+                                ${formatCurrency(balance)}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Aller à un mois spécifique
+        function goToMonth(monthKey) {
+            currentMonth = monthKey;
+            updateCurrentMonthDisplay();
+            switchTab('overview');
+        }
+
+        // Mettre à jour la répartition annuelle des dépenses
+        function updateYearlyExpensesBreakdown() {
+            const breakdown = {};
+            let totalExpenses = 0;
+            
+            for (let month = 1; month <= 12; month++) {
+                const monthKey = `${currentYear}-${month.toString().padStart(2, '0')}`;
+                if (budgetData[monthKey]) {
+                    budgetData[monthKey].expenses.forEach(expense => {
+                        breakdown[expense.category] = (breakdown[expense.category] || 0) + expense.amount;
+                        totalExpenses += expense.amount;
+                    });
+                }
+            }
+            
+            const container = document.getElementById('yearly-expenses-breakdown');
+            if (Object.keys(breakdown).length === 0) {
+                container.innerHTML = '<p class="text-gray text-center p-4">Aucune dépense pour cette année</p>';
+            } else {
+                container.innerHTML = Object.entries(breakdown)
+                    .sort(([,a], [,b]) => b - a)
+                    .map(([category, amount]) => {
+                        const percentage = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0;
+                        return `
+                            <div class="flex flex-between p-4" style="border-bottom: 1px solid #e5e7eb;">
+                                <span class="font-bold">${category}</span>
+                                <div style="text-align: right;">
+                                    <p class="font-bold">${formatCurrency(amount)}</p>
+                                    <p class="text-gray" style="font-size: 14px;">${percentage.toFixed(1)}%</p>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+            }
+        }
+
+        // Mettre à jour les objectifs d'épargne annuels
+        function updateYearlySavingsGoals() {
+            const savingsGoals = {};
+            
+            for (let month = 1; month <= 12; month++) {
+                const monthKey = `${currentYear}-${month.toString().padStart(2, '0')}`;
+                if (budgetData[monthKey]) {
+                    budgetData[monthKey].savings.forEach(saving => {
+                        if (!savingsGoals[saving.goal]) {
+                            savingsGoals[saving.goal] = {
+                                target: saving.target,
+                                amount: 0,
+                                months: []
+                            };
+                        }
+                        savingsGoals[saving.goal].amount += saving.amount;
+                        savingsGoals[saving.goal].months.push(monthKey);
+                    });
+                }
+            }
+            
+            const container = document.getElementById('yearly-savings-goals');
+            if (Object.keys(savingsGoals).length === 0) {
+                container.innerHTML = '<p class="text-gray text-center p-4">Aucun objectif d\'épargne pour cette année</p>';
+            } else {
+                container.innerHTML = Object.entries(savingsGoals).map(([goal, data]) => {
+                    const progress = (data.amount / data.target) * 100;
+                    const monthsCount = [...new Set(data.months)].length;
+                    return `
+                        <div class="p-4" style="background: #eff6ff; border-radius: 8px; margin-bottom: 12px;">
+                            <div class="flex flex-between mb-4">
+                                <div>
+                                    <p class="font-bold">${goal}</p>
+                                    <p class="text-gray">${formatCurrency(data.amount)} / ${formatCurrency(data.target)}</p>
+                                    <p class="text-gray" style="font-size: 12px;">Présent dans ${monthsCount} mois</p>
+                                </div>
+                                <div class="flex" style="align-items: center;">
+                                    <span class="text-blue font-bold" style="margin-right: 16px;">${progress.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${Math.min(progress, 100)}%; background: ${progress >= 100 ? '#10b981' : '#3b82f6'}"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Mettre à jour l'affichage
+        function updateDisplay() {
+            if (activeTab === 'yearly') {
+                updateYearlyView();
+                return;
+            }
+            
+            initCurrentMonth();
+            const data = budgetData[currentMonth];
+            
+            // Calculs
+            const totalIncome = data.income.reduce((sum, item) => sum + item.amount, 0);
+            const totalExpenses = data.expenses.reduce((sum, item) => sum + item.amount, 0);
+            const totalSavings = data.savings.reduce((sum, item) => sum + item.amount, 0);
+            const remainingBudget = totalIncome - totalExpenses - totalSavings;
+            
+            // Mise à jour vue d'ensemble
+            document.getElementById('total-income').textContent = formatCurrency(totalIncome);
+            document.getElementById('total-expenses').textContent = formatCurrency(totalExpenses);
+            document.getElementById('total-savings').textContent = formatCurrency(totalSavings);
+            document.getElementById('remaining-budget').textContent = formatCurrency(remainingBudget);
+            document.getElementById('remaining-budget').className = `text-2xl font-bold ${remainingBudget >= 0 ? 'text-green' : 'text-red'}`;
+            
+            // Alerte budget
+            if (remainingBudget < 0) {
+                document.getElementById('budget-alert').classList.remove('hidden');
+                document.getElementById('deficit-amount').textContent = formatCurrency(Math.abs(remainingBudget));
+            } else {
+                document.getElementById('budget-alert').classList.add('hidden');
+            }
+            
+            // Listes
+            updateIncomeList(data.income);
+            updateExpensesList(data.expenses);
+            updateSavingsList(data.savings);
+            updateExpensesBreakdown(data.expenses, totalExpenses);
+            updateHistoryList();
+        }
+
+        // Mettre à jour la liste des revenus
+        function updateIncomeList(income) {
+            const list = document.getElementById('income-list');
+            if (income.length === 0) {
+                list.innerHTML = '<p class="text-gray text-center p-4">Aucun revenu enregistré pour ce mois</p>';
+            } else {
+                list.innerHTML = income.map(item => `
+                    <div class="flex flex-between p-4" style="background: #f0fdf4; border-radius: 8px; margin-bottom: 12px;">
+                        <div>
+                            <p class="font-bold">${item.source}</p>
+                            <p class="text-green font-bold">${formatCurrency(item.amount)}</p>
+                            <p class="text-gray" style="font-size: 12px;">${new Date(item.date).toLocaleDateString('fr-FR')}</p>
+                        </div>
+                        <button onclick="removeItem(${item.id}, 'income')" class="btn btn-danger" style="padding: 8px;">🗑️</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Mettre à jour la liste des dépenses
+        function updateExpensesList(expenses) {
+            const list = document.getElementById('expenses-list');
+            if (expenses.length === 0) {
+                list.innerHTML = '<p class="text-gray text-center p-4">Aucune dépense enregistrée pour ce mois</p>';
+            } else {
+                list.innerHTML = expenses.map(item => `
+                    <div class="flex flex-between p-4" style="background: #fafafa; border-radius: 8px; margin-bottom: 12px;">
+                        <div>
+                            <p class="font-bold">${item.description}</p>
+                            <p class="text-gray">${item.category}</p>
+                            <p class="text-red font-bold">${formatCurrency(item.amount)}</p>
+                            <p class="text-gray" style="font-size: 12px;">${new Date(item.date).toLocaleDateString('fr-FR')}</p>
+                        </div>
+                        <button onclick="removeItem(${item.id}, 'expenses')" class="btn btn-danger" style="padding: 8px;">🗑️</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Ajouter un montant à un objectif d'épargne existant
+        function addToSavingsGoal(id) {
+            const additionalAmount = parseFloat(prompt('Montant à ajouter (€):'));
+            if (additionalAmount && additionalAmount > 0) {
+                const savingItem = budgetData[currentMonth].savings.find(item => item.id === id);
+                if (savingItem) {
+                    savingItem.amount += additionalAmount;
+                    savingItem.date = new Date().toISOString(); // Mettre à jour la date
+                    saveData();
+                    updateDisplay();
+                }
+            }
+        }
+
+        // Mettre à jour la liste d'épargne
+        function updateSavingsList(savings) {
+            const list = document.getElementById('savings-list');
+            if (savings.length === 0) {
+                list.innerHTML = '<p class="text-gray text-center p-4">Aucun objectif d\'épargne défini pour ce mois</p>';
+            } else {
+                list.innerHTML = savings.map(item => {
+                    const progress = (item.amount / item.target) * 100;
+                    const isCompleted = progress >= 100;
+                    return `
+                        <div class="p-4" style="background: ${isCompleted ? '#f0fdf4' : '#eff6ff'}; border-radius: 8px; margin-bottom: 12px;">
+                            <div class="flex flex-between mb-4">
+                                <div>
+                                    <p class="font-bold">${item.goal} ${isCompleted ? '✅' : ''}</p>
+                                    <p class="text-gray">${formatCurrency(item.amount)} / ${formatCurrency(item.target)}</p>
+                                    <p class="text-gray" style="font-size: 12px;">${new Date(item.date).toLocaleDateString('fr-FR')}</p>
+                                </div>
+                                <div class="flex" style="align-items: center; gap: 8px;">
+                                    <span class="text-blue font-bold">${progress.toFixed(1)}%</span>
+                                    ${!isCompleted ? `<button onclick="addToSavingsGoal(${item.id})" class="btn btn-success" style="padding: 6px 12px; font-size: 12px;">➕ Ajouter</button>` : ''}
+                                    <button onclick="removeItem(${item.id}, 'savings')" class="btn btn-danger" style="padding: 8px;">🗑️</button>
+                                </div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${Math.min(progress, 100)}%; background: ${isCompleted ? '#10b981' : '#3b82f6'}"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Mettre à jour la répartition des dépenses
+        function updateExpensesBreakdown(expenses, total) {
+            const breakdown = {};
+            expenses.forEach(expense => {
+                breakdown[expense.category] = (breakdown[expense.category] || 0) + expense.amount;
+            });
+
+            const list = document.getElementById('expenses-breakdown');
+            if (Object.keys(breakdown).length === 0) {
+                list.innerHTML = '<p class="text-gray text-center p-4">Aucune dépense pour ce mois</p>';
+            } else {
+                list.innerHTML = Object.entries(breakdown).map(([category, amount]) => {
+                    const percentage = total > 0 ? (amount / total) * 100 : 0;
+                    return `
+                        <div class="flex flex-between p-4" style="border-bottom: 1px solid #e5e7eb;">
+                            <span class="font-bold">${category}</span>
+                            <div style="text-align: right;">
+                                <p class="font-bold">${formatCurrency(amount)}</p>
+                                <p class="text-gray" style="font-size: 14px;">${percentage.toFixed(1)}%</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Mettre à jour l'historique
+        function updateHistoryList() {
+            const list = document.getElementById('history-list');
+            const months = Object.keys(budgetData).sort().slice(-6);
+            
+            if (months.length === 0) {
+                list.innerHTML = '<p class="text-gray text-center p-4">Aucun historique disponible</p>';
+            } else {
+                list.innerHTML = months.reverse().map(month => {
+                    const data = budgetData[month];
+                    const income = data.income.reduce((sum, item) => sum + item.amount, 0);
+                    const expenses = data.expenses.reduce((sum, item) => sum + item.amount, 0);
+                    const savings = data.savings.reduce((sum, item) => sum + item.amount, 0);
+                    const balance = income - expenses - savings;
+                    
+                    const date = new Date(month + '-01');
+                    const monthName = date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+                    
+                    return `
+                        <div class="card">
+                            <div class="flex flex-between mb-4">
+                                <h4 class="text-2xl font-bold">${monthName.charAt(0).toUpperCase() + monthName.slice(1)}</h4>
+                                <span class="text-2xl font-bold ${balance >= 0 ? 'text-green' : 'text-red'}">${formatCurrency(balance)}</span>
+                            </div>
+                            <div class="grid grid-4">
+                                <div class="text-center">
+                                    <p class="text-gray">Revenus</p>
+                                    <p class="text-2xl font-bold text-green">${formatCurrency(income)}</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-gray">Dépenses</p>
+                                    <p class="text-2xl font-bold text-red">${formatCurrency(expenses)}</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-gray">Épargne</p>
+                                    <p class="text-2xl font-bold text-blue">${formatCurrency(savings)}</p>
+                                </div>
+                                <div class="text-center">
+                                    <button onclick="currentMonth='${month}'; updateCurrentMonthDisplay(); updateDisplay();" class="btn btn-primary">Voir le détail</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Export des données
+        function exportData() {
+            const dataStr = JSON.stringify(budgetData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `budget-planner-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Import des données
+        function importData(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        budgetData = data;
+                        saveData();
+                        updateDisplay();
+                        alert('Données importées avec succès !');
+                        input.value = '';
+                    } catch (error) {
+                        alert('Erreur lors de l\'importation. Vérifiez le format du fichier.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+    </script>
+</body>
+</html>
